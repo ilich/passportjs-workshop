@@ -48,8 +48,7 @@ router.post('/register', passport.authenticate('local-signup', {
 router.get('/profile', secure, function (req, res, next) {
     res.render('profile', { 
         scripts: [],
-        username: 'Test123',
-        counter: 10
+        user: req.user
     });
 });
 
