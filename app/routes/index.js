@@ -1,24 +1,30 @@
 var express = require('express');
-var bcrypt = require('bcrypt-nodejs')
+var bcrypt = require('bcrypt-nodejs');
+var passport = require('passport');
 var db = require('../db');
+var secure = require('../middleware/secure');
 var router = express.Router();
 
 router.get('/', function(req, res, next) {
-    res.render('index', { 
-        scripts: [], 
-        errors: [] 
-    });
-});
-
-router.post('/', function(req, res, next) {
     var errors = [];
+    var fail = req.flash('error'); 
+    
+    if (fail.length > 0) {
+        errors.push(fail);
+    }
     
     res.render('index', { 
         scripts: [], 
         errors: errors 
-    });  
-    
+    });
 });
+
+router.post('/', passport.authenticate('local-signin', {
+    successRedirect: '/profile',
+    failureRedirect: '/',
+    failureFlash: true,
+    badRequestMessage: 'Incorrect username or password.'
+}));
 
 router.get('/register', function(req, res, next) {
     res.render('register', { 
@@ -71,12 +77,17 @@ router.post('/register', function(req, res, next) {
     });    
 });
 
-router.get('/profile', function (req, res, next) {
+router.get('/profile', secure, function (req, res, next) {
     res.render('profile', { 
         scripts: [],
         username: 'Test123',
         counter: 10
     });
+});
+
+router.get('/logout', function (req, res, next) {
+    req.logout();
+    res.redirect('/');
 });
 
 module.exports = router;

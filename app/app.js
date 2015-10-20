@@ -1,4 +1,8 @@
 var express = require('express');
+var session = require('express-session');
+var passport = require('passport');
+var configurePassport = require('./config/passport');
+var flash = require('connect-flash');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -20,6 +24,25 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Initialize Express Session and Passport
+app.use(session({
+    secret: 'ra4awuCewRe34drU5hEtababr',
+    name: 'SessionID',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        // secure: true,        // Use in production. Send session cookie only over HTTPS
+        httpOnly: true
+    }
+}));
+
+configurePassport(passport);
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(flash());
+
+// -----------------------------------------
 
 app.use('/', routes);
 
