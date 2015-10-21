@@ -1,11 +1,13 @@
 var LocalStrategy = require('passport-local').Strategy;
 var RememberMeStrategy = require('passport-remember-me').Strategy;
 var TwitterStrategy = require('passport-twitter').Strategy;
+var TotpStrategy = require('passport-totp').Strategy;
 var bcrypt = require('bcrypt-nodejs');
 var ObjectID = require('mongodb').ObjectID;
 var db = require('../db');
 var config = require('./config')
 var tokensStorage = require('../utils/token');
+var base32 = require('thirty-two');
 
 module.exports = function (passport) {
     passport.serializeUser(function (user, done) {
@@ -126,10 +128,21 @@ module.exports = function (passport) {
     
     // Remember Me
     
-    passport.use(new RememberMeStrategy(
-        function (token, done) {
+    passport.use(new RememberMeStrategy({
+            passReqToCallback: true
+        },
+        function (req, token, done) {
             process.nextTick(function() {
-                tokensStorage.consume(token, done);
+                tokensStorage.consume(token, function (err, user) {
+                    if (err) {
+                        return done(err);
+                    } else if (user === false) {
+                        return done(null, false);
+                    } else {
+                        req.session.isAuthenticated = true;
+                        return done(null, user);
+                    }
+                });
             });
         },
         function (user, done) {
@@ -197,4 +210,20 @@ module.exports = function (passport) {
             });
         }
     ));
+    
+    // Two-factor Authentication
+    
+    passport.use(new TotpStrategy(function (user, done) {
+        var key = user.key;
+        if (!key) {
+            // If key is not found then user hasn't setup 2FA yet
+            
+            done(new Error("2FA Key is not found"));
+        } else {
+            // Google Authenticator uses 30 seconds key period
+            // https://github.com/google/google-authenticator/wiki/Key-Uri-Format
+            
+            done(null, base32.decode(key), 30); 
+        }
+    }));
 };
