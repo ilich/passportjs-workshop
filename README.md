@@ -9,4 +9,4 @@ Use `npm start` command to launch the application. Default application URL is [h
  
 ## Notes
 
-**IMPORTANT!** There is a compatibility issue in **passport-remember-me** package. Please use fixed version located at https://github.com/ilich/passport-remember-me
+**IMPORTANT!** There is a compatibility issue in **passport-remember-me** package. Please use fixed version located from https://github.com/ilich/passport-remember-me
