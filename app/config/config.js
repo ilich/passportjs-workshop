@@ -3,6 +3,6 @@ module.exports = {
     twitter: {
         consumerKey: "Your Consumer Key (API Key)",
         consumerSecret: "Consumer Secret (API Secret)",
-        callbackURL: "http://localhost:3000/auth/twitter/callback"
+        callbackURL: "http://127.0.0.1:3000/auth/twitter/callback"
     }
 };
