@@ -5,7 +5,7 @@ Sample project for Managing User Authentication Using Passport presentation.
 
 Use `npm install` command to setup project dependencies.
 
-Use `npm start` command to launch the application. Default application URL is http://localhost:3000. 
+Use `npm start` command to launch the application. Default application URL is [http://localhost:3000](http://localhost:3000). 
  
 ## Notes
 
