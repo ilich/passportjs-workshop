@@ -1,8 +1,10 @@
 var LocalStrategy = require('passport-local').Strategy;
 var RememberMeStrategy = require('passport-remember-me').Strategy;
+var TwitterStrategy = require('passport-twitter').Strategy;
 var bcrypt = require('bcrypt-nodejs');
 var ObjectID = require('mongodb').ObjectID;
 var db = require('../db');
+var config = require('./config')
 var tokensStorage = require('../utils/token');
 
 module.exports = function (passport) {
@@ -32,7 +34,7 @@ module.exports = function (passport) {
         function (username, password, done) {
             process.nextTick(function () {
                 var users = db.get().collection('users');
-                users.findOne({ username: username }, function (err, user) {
+                users.findOne({ username: username, type: 'local' }, function (err, user) {
                     if (err) {
                         done(err);
                     } else if (user === null) {
@@ -71,7 +73,7 @@ module.exports = function (passport) {
             process.nextTick(function () {
                 var errors = [];
         
-                if (!/^[A-Za-z0-9]+$/g.test(req.body.username)) {
+                if (!/^[A-Za-z0-9_]+$/g.test(req.body.username)) {
                     errors.push('Invalid username.');
                 }
                 
@@ -88,7 +90,7 @@ module.exports = function (passport) {
                 }
                 
                 var users = db.get().collection('users');
-                users.findOne({ username: req.body.username }, function (err, user) {
+                users.findOne({ username: req.body.username, type: 'local' }, function (err, user) {
                     if (err) {
                         return done(err);    
                     }
@@ -105,6 +107,7 @@ module.exports = function (passport) {
                         var user = {
                             username: req.body.username,
                             password: hash,
+                            type: 'local',
                             counter: 1
                         }
                         
@@ -125,10 +128,73 @@ module.exports = function (passport) {
     
     passport.use(new RememberMeStrategy(
         function (token, done) {
-            tokensStorage.consume(token, done);
+            process.nextTick(function() {
+                tokensStorage.consume(token, done);
+            });
         },
         function (user, done) {
-            tokensStorage.create(user, done);
+            process.nextTick(function() {
+                tokensStorage.create(user, done);
+            });
+        }
+    ));
+    
+    // Twitter Authentication
+    
+    passport.use(new TwitterStrategy({
+            consumerKey: config.twitter.consumerKey,
+            consumerSecret: config.twitter.consumerSecret,
+            callbackURL: config.twitter.callbackURL
+        }, function(token, tokenSecret, profile, done) {
+            process.nextTick(function () {
+                var users = db.get().collection('users');
+                users.findOne({ username: profile.username, type: 'twitter' }, function (err, user) {
+                    if (err) {
+                        return done(err);
+                    }
+                    
+                    if (user === null) {
+                        
+                        // First login. Create an account
+                        
+                        var photo = '';
+                        if (profile.photos.length > 0) {
+                            photo = profile.photos[0].value;
+                        }
+                        
+                        user = {
+                            username: profile.username,
+                            type: 'twitter',
+                            counter: 1,
+                            twitter: {
+                                displayName: profile.displayName,
+                                photo: photo
+                            }
+                        }
+                        
+                        users.insert(user, function (err) {
+                            if (err) {
+                                return done(err);
+                            }
+                            
+                            return done(null, user);
+                        });
+                        
+                    } else {
+                        
+                        // Known user. Update statistics
+                        
+                        user.counter++;
+                        users.update({ _id: new ObjectID(user._id) }, { $set: { counter: user.counter } }, function (err) {
+                            if (err) {
+                                return done(err);
+                            }
+                            
+                            return done(null, user);    
+                        });
+                    }
+                });
+            });
         }
     ));
 };

@@ -78,4 +78,14 @@ router.get('/logout', function (req, res, next) {
     });
 });
 
+// Twitter authentication
+
+// Redirect the user to Twitter for authentication.
+router.get('/auth/twitter', passport.authenticate('twitter'));
+
+// Twitter will redirect the user to this URL after approval.
+router.get('/auth/twitter/callback',  passport.authenticate('twitter', { 
+    successRedirect: '/profile', 
+    failureRedirect: '/' }));
+
 module.exports = router;
