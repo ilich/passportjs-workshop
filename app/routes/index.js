@@ -2,6 +2,7 @@ var express = require('express');
 var bcrypt = require('bcrypt-nodejs');
 var passport = require('passport');
 var db = require('../db');
+var tokensStorage = require('../utils/token');
 var secure = require('../middleware/secure');
 var router = express.Router();
 
@@ -15,6 +16,10 @@ function getErrors(req) {
 }
 
 router.get('/', function(req, res, next) {
+    if (req.isAuthenticated()) {
+        return res.redirect('/profile');
+    }
+    
     var errors = getErrors(req);
     
     res.render('index', { 
@@ -24,11 +29,25 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/', passport.authenticate('local-signin', {
-    successRedirect: '/profile',
     failureRedirect: '/',
     failureFlash: true,
     badRequestMessage: 'Incorrect username or password.'
-}));
+}), function (req, res, next) {
+    
+    // If Remember Me is set we have to save initial remember_me cookie
+    if (!req.body.remember) {
+        return res.redirect('/profile');
+    }
+    
+    tokensStorage.create(req.user, function (err, token) {
+        if (err) {
+            return next(err);
+        }
+        
+        res.cookie('remember_me', token, { path: '/', httpOnly: true, maxAge: 604800000 });
+        return res.redirect('/profile');
+    });
+});
 
 router.get('/register', function(req, res, next) {
     var errors = getErrors(req);
@@ -53,8 +72,10 @@ router.get('/profile', secure, function (req, res, next) {
 });
 
 router.get('/logout', function (req, res, next) {
-    req.logout();
-    res.redirect('/');
+    tokensStorage.logout(req, res, function () {
+        req.logout();
+        res.redirect('/');    
+    });
 });
 
 module.exports = router;

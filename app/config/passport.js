@@ -1,7 +1,9 @@
 var LocalStrategy = require('passport-local').Strategy;
-var bcrypt = require('bcrypt-nodejs')
+var RememberMeStrategy = require('passport-remember-me').Strategy;
+var bcrypt = require('bcrypt-nodejs');
 var ObjectID = require('mongodb').ObjectID;
 var db = require('../db');
+var tokensStorage = require('../utils/token');
 
 module.exports = function (passport) {
     passport.serializeUser(function (user, done) {
@@ -21,38 +23,44 @@ module.exports = function (passport) {
         });  
     });
     
+    // Login using MongoDB
+    
     passport.use('local-signin', new LocalStrategy({
             usernameField: 'username',
             passwordField: 'password'
         },
         function (username, password, done) {
-            var users = db.get().collection('users');
-            users.findOne({ username: username }, function (err, user) {
-                if (err) {
-                    done(err);
-                } else if (user === null) {
-                    done(null, false, { message: 'Incorrect username or password.' });
-                } else {
-                    bcrypt.compare(password, user.password, function (err, result) {
-                        if (err) {
-                            return done(err);
-                        } else if (result) {
-                            user.counter++;
-                            users.update({ _id: new ObjectID(user._id) }, { $set: { counter: user.counter } }, function (err) {
-                                if (err) {
-                                    return done(err);
-                                }    
-                                
-                                return done(null, user);    
-                            });
-                        } else {
-                            return done(null, false, { message: 'Incorrect username or password.' });
-                        }
-                    });
-                }
-            });  
+            process.nextTick(function () {
+                var users = db.get().collection('users');
+                users.findOne({ username: username }, function (err, user) {
+                    if (err) {
+                        done(err);
+                    } else if (user === null) {
+                        done(null, false, { message: 'Incorrect username or password.' });
+                    } else {
+                        bcrypt.compare(password, user.password, function (err, result) {
+                            if (err) {
+                                return done(err);
+                            } else if (result) {
+                                user.counter++;
+                                users.update({ _id: new ObjectID(user._id) }, { $set: { counter: user.counter } }, function (err) {
+                                    if (err) {
+                                        return done(err);
+                                    }    
+                                    
+                                    return done(null, user);    
+                                });
+                            } else {
+                                return done(null, false, { message: 'Incorrect username or password.' });
+                            }
+                        });
+                    }
+                });
+            });
         }
     ));
+    
+    // Create new account
     
     passport.use('local-signup', new LocalStrategy({
             usernameField: 'username',
@@ -60,54 +68,67 @@ module.exports = function (passport) {
             passReqToCallback: true
         },
         function (req, username, password, done) {
-            var errors = [];
-    
-            if (!/^[A-Za-z0-9]+$/g.test(req.body.username)) {
-                errors.push('Invalid username.');
-            }
-            
-            if (req.body.password.length === 0) {
-                errors.push('Password is required.');
-            }
-            
-            if (req.body.password !== req.body.confirmPassword) {
-                errors.push('Passwords do not match.')    
-            }
-            
-            if (errors.length > 0) {
-                return done(null, false, { message: errors.join('|') });  
-            }
-            
-            var users = db.get().collection('users');
-            users.findOne({ username: req.body.username }, function (err, user) {
-                if (err) {
-                    return done(err);    
+            process.nextTick(function () {
+                var errors = [];
+        
+                if (!/^[A-Za-z0-9]+$/g.test(req.body.username)) {
+                    errors.push('Invalid username.');
                 }
                 
-                if (user !== null) {
-                    return done(null, false, { message: 'Invalid username.' });
+                if (req.body.password.length === 0) {
+                    errors.push('Password is required.');
                 }
                 
-                bcrypt.hash(req.body.password, null, null, function (err, hash) {
+                if (req.body.password !== req.body.confirmPassword) {
+                    errors.push('Passwords do not match.')    
+                }
+                
+                if (errors.length > 0) {
+                    return done(null, false, { message: errors.join('|') });  
+                }
+                
+                var users = db.get().collection('users');
+                users.findOne({ username: req.body.username }, function (err, user) {
                     if (err) {
                         return done(err);    
                     }
                     
-                    var user = {
-                        username: req.body.username,
-                        password: hash,
-                        counter: 1
+                    if (user !== null) {
+                        return done(null, false, { message: 'Invalid username.' });
                     }
                     
-                    users.insert(user, function (err) {
+                    bcrypt.hash(req.body.password, null, null, function (err, hash) {
                         if (err) {
-                            return done(err);
+                            return done(err);    
                         }
                         
-                        return done(null, user);
+                        var user = {
+                            username: req.body.username,
+                            password: hash,
+                            counter: 1
+                        }
+                        
+                        users.insert(user, function (err) {
+                            if (err) {
+                                return done(err);
+                            }
+                            
+                            return done(null, user);
+                        });
                     });
                 });
-            }); 
+            });
+        }
+    ));
+    
+    // Remember Me
+    
+    passport.use(new RememberMeStrategy(
+        function (token, done) {
+            tokensStorage.consume(token, done);
+        },
+        function (user, done) {
+            tokensStorage.create(user, done);
         }
     ));
 };

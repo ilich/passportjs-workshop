@@ -33,14 +33,16 @@ app.use(session({
     saveUninitialized: true,
     cookie: {
         // secure: true,        // Use in production. Send session cookie only over HTTPS
-        httpOnly: true
+        httpOnly: true,
     }
 }));
+
+app.use(flash());
 
 configurePassport(passport);
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(flash());
+app.use(passport.authenticate('remember-me'));
 
 // -----------------------------------------
 
