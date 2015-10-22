@@ -30,3 +30,6 @@ build/Release
 
 # Visual Studio Code
 typings
+
+# Windows Launcher
+run.cmd

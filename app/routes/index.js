@@ -148,10 +148,11 @@ router.get('/register', function(req, res, next) {
 });
 
 router.post('/register', passport.authenticate('local-signup', {
-    successRedirect: '/profile',
     failureRedirect: '/register',
     failureFlash: true
-}));
+}), function (req, res, next) {
+    return res.redirect('/google-authenticator');
+});
 
 router.get('/profile', secure.canAccess, function (req, res, next) {
     res.render('profile', { 
